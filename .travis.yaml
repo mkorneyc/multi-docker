@@ -1,0 +1,35 @@
+language: generic
+sudo: required
+
+services:
+  - docker
+
+before_install:
+  - docker build -t mkorneyc/react-test -f ./client/Dockerfile.dev .
+
+script:
+  - docker run -e CI=true mkorneyc/react-test npm run test
+
+ater_success:
+  - docker build -t mkorneyc/multi-client -f ./client
+  - docker build -t mkorneyc/multi-nginx -f ./nginx
+  - docker build -t mkorneyc/multi-server -f ./server
+  - docker build -t mkorneyc/multi-worker -f ./worker
+
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+  - docker push mkorneyc/multi-client
+  - docker push mkorneyc/multi-nginx
+  - docker push mkorneyc/multi-server
+  - docker push mkorneyc/multi-worker
+
+deploy:
+  provider: elasticbeanstalk
+  region: "us-east-2"
+  app: "docker"
+  env: "docker-env"
+  bucket_name: "elasticbeanstalk-us-east-2-923445559289"
+  bucket_path: "docker"
+  on:
+    branch: master
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key: $AWS_SECRET_KEY
